@@ -61,6 +61,7 @@ select.sel{padding:8px;border:1px solid var(--line);border-radius:8px;background
 <label>Lățime scenă (m)<input type="number" id="inW" min="4" max="30" step="0.5"></label>
 <label>Adâncime scenă (m)<input type="number" id="inD" min="2" max="15" step="0.5"></label>
 <label>Router în sală, la (m)<input type="number" id="inR" min="1" max="30" step="0.5"></label>
+<label>Traseu cabluri<select id="inRoute" class="sel"><option value="spate">Prin spate, ocolind fața corului</option><option value="scurt">Cel mai scurt</option></select></label>
 <button id="reset">Resetează pozițiile și zonele</button>
 <button id="cfgCopy">Copiază configurația</button>
 <button id="cfgLoad">Încarcă configurația</button>
@@ -244,7 +245,21 @@ const byId=id=>items.find(i=>i.id===id);
 const lab=id=>byId(id).label;
 function P(id){const i=byId(id);if(i.zone){const z=Z(i.zone);return{x:(z.x0+i.rx*(z.x1-z.x0))*st.W,y:(z.y0+i.ry*(z.y1-z.y0))*st.D,h:i.h};}if(i.hall)return{x:i.fx*st.W,y:st.D+st.R,h:i.h};return{x:i.fx*st.W,y:i.fy*st.D,h:i.h};}
 function distTo(a,b){const A=P(a),B=P(b);return Math.abs(A.x-B.x)+Math.abs(A.y-B.y);}
-function est(c){const A=P(c.f),B=P(c.t);if(c.f==='wing'&&c.t==='sd16'||c.f==='sd16'&&c.t==='wing'){}return (Math.abs(A.x-B.x)+Math.abs(A.y-B.y)+A.h+B.h)*1.1+1;}
+// traseu cablu: alege între L-uri directe, culoarul din spate și marginea din față; penalizează trecerea prin fața corurilor și prin coruri
+function segIn(a,b,r){if(a.x===b.x){if(a.x<r.x0||a.x>r.x1)return 0;const y0=Math.max(Math.min(a.y,b.y),r.y0),y1=Math.min(Math.max(a.y,b.y),r.y1);return Math.max(0,y1-y0);}
+if(a.y<r.y0||a.y>r.y1)return 0;const x0=Math.max(Math.min(a.x,b.x),r.x0),x1=Math.min(Math.max(a.x,b.x),r.x1);return Math.max(0,x1-x0);}
+function pathLen(p){let L=0;for(let i=1;i<p.length;i++)L+=Math.abs(p[i].x-p[i-1].x)+Math.abs(p[i].y-p[i-1].y);return L;}
+function routeOf(c){const A=P(c.f),B=P(c.t);const a={x:A.x,y:A.y},b={x:B.x,y:B.y};
+const opts=[[a,{x:b.x,y:a.y},b],[a,{x:a.x,y:b.y},b]];
+const hall=byId(c.f).hall||byId(c.t).hall;
+if(!hall){const yb=.1,yf=st.D-.1;opts.push([a,{x:a.x,y:yb},{x:b.x,y:yb},b]);opts.push([a,{x:a.x,y:yf},{x:b.x,y:yf},b]);}
+if((st.route||'spate')==='scurt')return opts.reduce((m,p)=>pathLen(p)<pathLen(m)?p:m);
+const zm=Z('cm'),zc=Z('cc'),W=st.W,D=st.D;
+const front={x0:Math.min(zm.x0,zc.x0)*W,x1:Math.max(zm.x1,zc.x1)*W,y0:Math.max(zm.y1,zc.y1)*D,y1:D+1};
+const choirs=[{x0:zm.x0*W,x1:zm.x1*W,y0:zm.y0*D,y1:zm.y1*D-.4},{x0:zc.x0*W,x1:zc.x1*W,y0:zc.y0*D,y1:zc.y1*D-.4}]; // ultimii 40 cm din fața fiecărui cor = linia stativelor, unde cablul e permis
+const cost=p=>{let k=pathLen(p);for(let i=1;i<p.length;i++){k+=4*segIn(p[i-1],p[i],front);choirs.forEach(r=>k+=6*segIn(p[i-1],p[i],r));}return k;};
+return opts.reduce((m,p)=>cost(p)<cost(m)?p:m);}
+function est(c){const A=P(c.f),B=P(c.t);return (pathLen(routeOf(c))+A.h+B.h)*1.1+1;}
 function pick(ty,L){const s=TYPES[ty].std;for(const v of s)if(v>=L)return{v,x:1};const m=s[s.length-1];return{v:m,x:Math.ceil(L/m)};}
 const fmt=v=>(Math.round(v*10)/10).toString().replace('.',',');
 
@@ -271,7 +286,7 @@ const t1=el('text',{x:W/2,y:D+S*.9,'text-anchor':'middle','font-size':13,fill:mu
 const t2=el('text',{x:W/2,y:-10,'text-anchor':'middle','font-size':12,fill:mut},g);t2.textContent=`Spatele scenei · ${fmt(st.W)} m × ${fmt(st.D)} m`;
 const cl=el('g',{},g);
 conns().forEach(c=>{if(st.hide[c.ty])return;const A=P(c.f),B=P(c.t);
-el('polyline',{points:`${A.x*S},${A.y*S} ${B.x*S},${A.y*S} ${B.x*S},${B.y*S}`,fill:'none',stroke:TYPES[c.ty].c,'stroke-width':c.ty==='CAT'?3:1.6,'stroke-opacity':.75,'stroke-dasharray':c.ty==='PWR'?'5 4':''},cl);});
+el('polyline',{points:routeOf(c).map(q=>`${q.x*S},${q.y*S}`).join(' '),fill:'none',stroke:TYPES[c.ty].c,'stroke-width':c.ty==='CAT'?3:1.6,'stroke-opacity':.75,'stroke-dasharray':c.ty==='PWR'?'5 4':''},cl);});
 items.forEach(i=>{const p=P(i.id);const gi=el('g',{transform:`translate(${p.x*S},${p.y*S})`,style:'cursor:grab','data-id':i.id},g);
 const c=KIND[i.kind];
 if(i.kind==='mic')el('circle',{r:7,fill:c,stroke:'#fff','stroke-width':1.5},gi);
@@ -425,7 +440,7 @@ document.getElementById('cuName').value='';save();applyPos();renderAll();};
 
 // ---- export / import
 const box=document.getElementById('cfgBox'),ta=document.getElementById('cfgText'),msg=document.getElementById('cfgMsg'),apply=document.getElementById('cfgApply');
-function cfgString(){return 'PLANSUNET1:'+JSON.stringify({W:st.W,D:st.D,R:st.R,pos:st.pos,zones:st.zones||{},custom:st.custom||[],chk:st.chk,mz:st.mz||{},hide:st.hide});}
+function cfgString(){return 'PLANSUNET1:'+JSON.stringify({W:st.W,D:st.D,R:st.R,route:st.route||'spate',pos:st.pos,zones:st.zones||{},custom:st.custom||[],chk:st.chk,mz:st.mz||{},hide:st.hide});}
 document.getElementById('cfgCopy').onclick=async()=>{const t=cfgString();box.style.display='block';apply.style.display='none';ta.value=t;
 try{await navigator.clipboard.writeText(t);msg.textContent='Configurația a fost copiată. Lipește-o într-o notiță sau trimite-o pe alt dispozitiv. Textul e și mai jos.';}
 catch(e){msg.textContent='Nu am putut copia automat. Selectează textul de mai jos și copiază-l manual.';}
@@ -433,13 +448,14 @@ ta.focus();ta.select();};
 document.getElementById('cfgLoad').onclick=()=>{box.style.display='block';apply.style.display='';ta.value='';msg.textContent='Lipește aici textul copiat cu „Copiază configurația” și apasă Aplică. Planul actual va fi înlocuit.';ta.focus();};
 document.getElementById('cfgClose').onclick=()=>{box.style.display='none';};
 apply.onclick=()=>{let t=ta.value.trim();try{if(!t.startsWith('PLANSUNET1:'))throw 0;const o=JSON.parse(t.slice(11));
-['W','D','R'].forEach(k=>{if(typeof o[k]==='number')st[k]=o[k];});['pos','zones','chk','mz','hide'].forEach(k=>{if(o[k]&&typeof o[k]==='object')st[k]=o[k];});if(Array.isArray(o.custom))st.custom=o.custom;
-save();iW.value=st.W;iD.value=st.D;iR.value=st.R;applyPos();drawLegend();renderAll();msg.textContent='Configurația a fost încărcată.';apply.style.display='none';}
+['W','D','R'].forEach(k=>{if(typeof o[k]==='number')st[k]=o[k];});['pos','zones','chk','mz','hide'].forEach(k=>{if(o[k]&&typeof o[k]==='object')st[k]=o[k];});if(Array.isArray(o.custom))st.custom=o.custom;if(o.route)st.route=o.route;
+save();iW.value=st.W;iD.value=st.D;iR.value=st.R;iRt.value=st.route||'spate';applyPos();drawLegend();renderAll();msg.textContent='Configurația a fost încărcată.';apply.style.display='none';}
 catch(e){msg.textContent='Textul nu pare o configurație validă. Verifică să fie copiat complet, începând cu PLANSUNET1:';}};
 
 // ---- controls & tabs
 const iW=document.getElementById('inW'),iD=document.getElementById('inD'),iR=document.getElementById('inR');
 iW.value=st.W;iD.value=st.D;iR.value=st.R;
+const iRt=document.getElementById('inRoute');iRt.value=st.route||'spate';iRt.onchange=()=>{st.route=iRt.value;save();renderAll();};
 [[iW,'W'],[iD,'D'],[iR,'R']].forEach(([e,k])=>e.addEventListener('input',()=>{const v=parseFloat(e.value);if(v>0){st[k]=v;save();renderAll();}}));
 document.getElementById('reset').onclick=()=>{st.pos={};st.zones={};save();applyPos();renderAll();};
 function renderAll(stage=true){if(stage)drawStage();drawZoneTable();drawCustom();drawMontaj();drawCables();drawChk();}
@@ -455,7 +471,7 @@ let SYNC=null,applyingRemote=false,lastLayout=null,layoutTimer=null;
 const syncTag=document.getElementById('sync');
 function setSync(t,ok){syncTag.textContent=t;syncTag.style.background=ok?'#dcfce7':'';syncTag.style.color=ok?'#166534':'';}
 const docId=(scope,id)=>(scope+'__'+id).replace(/[^A-Za-z0-9_\-.~:@+]/g,'~').slice(0,190);
-function layoutObj(){return{W:st.W,D:st.D,R:st.R,pos:st.pos||{},zones:st.zones||{},custom:st.custom||[]};}
+function layoutObj(){return{W:st.W,D:st.D,R:st.R,route:st.route||'spate',pos:st.pos||{},zones:st.zones||{},custom:st.custom||[]};}
 function syncLayout(){if(!SYNC||applyingRemote)return;const j=JSON.stringify(layoutObj());if(j===lastLayout)return;
 clearTimeout(layoutTimer);layoutTimer=setTimeout(async()=>{const j2=JSON.stringify(layoutObj());if(j2===lastLayout)return;lastLayout=j2;
 try{await SYNC.setLayout(JSON.parse(j2));}catch(e){onWriteErr(e);}},700);}
@@ -472,10 +488,10 @@ function applyChecks(rows){const chk={},mz={};
 rows.forEach(x=>{if(!x||!x.scope||!x.id)return;(x.scope==='chk'?chk:mz)[x.id]=x.scope==='chk'?{l:!!x.a,m:!!x.b}:{m:!!x.a,t:!!x.b};});
 Object.values(pending).forEach(p=>{(p.scope==='chk'?chk:mz)[p.id]=p.scope==='chk'?{l:p.a,m:p.b}:{m:p.a,t:p.b};});
 st.chk=chk;st.mz=mz;applyingRemote=true;save();applyingRemote=false;drawChk();drawMontaj();}
-function applyLayout(x){if(!x)return;const j=JSON.stringify({W:x.W,D:x.D,R:x.R,pos:x.pos||{},zones:x.zones||{},custom:x.custom||[]});
+function applyLayout(x){if(!x)return;const j=JSON.stringify({W:x.W,D:x.D,R:x.R,route:x.route||'spate',pos:x.pos||{},zones:x.zones||{},custom:x.custom||[]});
 if(j===JSON.stringify(layoutObj())){lastLayout=j;return;}if(drag||zdrag)return;
 lastLayout=j;applyingRemote=true;Object.assign(st,JSON.parse(j));save();applyingRemote=false;
-iW.value=st.W;iD.value=st.D;iR.value=st.R;applyPos();renderAll();}
+iW.value=st.W;iD.value=st.D;iR.value=st.R;iRt.value=st.route||'spate';applyPos();renderAll();}
 
 async function startSupabase(){
 setSync('Se conectează…',false);
