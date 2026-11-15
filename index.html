@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concert filarmonică – plan de sunet</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1f1e1b;--mut:#6b6960;--line:#dedbd2;--acc:#c2410c;--accbg:#fdf0e8;--ok:#15803d}
+@media (prefers-color-scheme:dark){:root{--bg:#161614;--card:#211f1c;--ink:#ecebe6;--mut:#a3a19a;--line:#3a3833;--acc:#f08a4b;--accbg:#3a2417;--ok:#4ade80}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5}
+header{padding:20px 20px 0;max-width:1300px;margin:0 auto}
+h1{font-size:22px;font-weight:600;margin:0 0 4px}
+.sub{color:var(--mut);margin:0 0 14px}
+.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin-bottom:14px}
+.controls label{display:flex;flex-direction:column;font-size:13px;color:var(--mut);gap:4px}
+input[type=number]{width:90px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:15px}
+button{padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:14px;cursor:pointer}
+button:hover{border-color:var(--mut)}
+nav{display:flex;gap:4px;border-bottom:1px solid var(--line);max-width:1300px;margin:0 auto;padding:0 20px;overflow-x:auto}
+nav a{padding:10px 16px;text-decoration:none;color:var(--mut);border-bottom:2px solid transparent;white-space:nowrap;font-weight:500}
+nav a.on{color:var(--ink);border-color:var(--acc)}
+main{max-width:1300px;margin:0 auto;padding:18px 20px 60px}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:17px;margin:0 0 10px;font-weight:600}
+.hint{color:var(--mut);font-size:13px;margin:6px 0 0}
+svg#stage{width:100%;height:auto;touch-action:none;user-select:none;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;font-size:13px}
+.legend label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.sw{width:18px;height:4px;border-radius:2px;display:inline-block}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--mut);font-weight:600;text-transform:none}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px}
+#tZone input{width:76px}
+.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:10px;background:var(--accbg);color:var(--acc);white-space:nowrap}
+.warn{background:var(--accbg);border:1px solid var(--acc);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:14px}
+.chk h3{font-size:15px;margin:14px 0 6px}
+.row{display:grid;grid-template-columns:auto auto 1fr auto;gap:10px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line)}
+.row input{width:20px;height:20px;accent-color:var(--acc)}
+.row .q{font-variant-numeric:tabular-nums;font-weight:600;min-width:36px;text-align:right}
+.mzc{border-top:4px solid var(--line)}
+.mzc .zp{font-size:13px;color:var(--mut);font-weight:400;margin-left:8px}
+.mzc .tip{font-size:13px;color:var(--mut);margin:4px 0 8px}
+.row.done .t{color:var(--mut);text-decoration:line-through}
+.colh{display:grid;grid-template-columns:auto auto 1fr auto;gap:10px;font-size:12px;color:var(--mut);padding:0 4px}
+.progress{font-size:14px;color:var(--mut)}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--ok)}
+@media (max-width:560px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+<h1>Concert filarmonică – plan de sunet</h1>
+<p class="sub">Wing Rack + SD16 · cor mare, cor copii, coarde, band · scenă privită din sală · <span id="sync" class="tag">Doar local</span></p>
+<div class="controls">
+<label>Lățime scenă (m)<input type="number" id="inW" min="4" max="30" step="0.5"></label>
+<label>Adâncime scenă (m)<input type="number" id="inD" min="2" max="15" step="0.5"></label>
+<label>Router în sală, la (m)<input type="number" id="inR" min="1" max="30" step="0.5"></label>
+<button id="reset">Resetează pozițiile și zonele</button>
+<button id="cfgCopy">Copiază configurația</button>
+<button id="cfgLoad">Încarcă configurația</button>
+</div>
+<div id="cfgBox" class="card" style="display:none">
+<p id="cfgMsg" class="hint" style="margin:0 0 8px"></p>
+<textarea id="cfgText" rows="5" style="width:100%;font-family:ui-monospace,monospace;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)"></textarea>
+<div style="display:flex;gap:8px;margin-top:8px"><button id="cfgApply">Aplică</button><button id="cfgClose">Închide</button></div>
+</div>
+</header>
+<nav id="tabs">
+<a href="#scena" data-t="scena">Scenă</a>
+<a href="#canale" data-t="canale">Channel list</a>
+<a href="#cabluri" data-t="cabluri">Cabluri</a>
+<a href="#montaj" data-t="montaj">Montaj pe zone</a>
+<a href="#checklist" data-t="checklist">Checklist</a>
+</nav>
+<main>
+<section id="scena">
+<div class="card">
+<svg id="stage"></svg>
+<p class="hint">Trage orice element ca să-l muți (și routerul din sală). Lungimile cablurilor și checklist-ul se recalculează automat.</p>
+<div class="legend" id="legend"></div>
+</div>
+<div class="card"><h2>Dimensiunile zonelor (m)</h2>
+<p class="hint" style="margin:0 0 10px">Poți trage zona ca s-o muți, colțurile albe ca s-o redimensionezi, sau scrii valorile aici. Microfoanele și muzicienii din zonă se mută odată cu ea. „De la stânga” și „de la spate” sunt măsurate din colțul stânga-spate al scenei, privit din sală.</p>
+<table id="tZone"></table>
+</div>
+</section>
+
+<section id="canale">
+<div class="grid2">
+<div class="card"><h2>Intrări Wing Rack (dreapta, lângă band)</h2><table id="tWin"></table></div>
+<div class="card"><h2>Intrări SD16 (stânga, coruri și coarde)</h2><table id="tSin"></table></div>
+<div class="card"><h2>Ieșiri Wing Rack</h2><table id="tWout"></table></div>
+<div class="card"><h2>Ieșiri SD16</h2><table id="tSout"></table></div>
+</div>
+</section>
+
+<section id="cabluri">
+<div class="warn"><b>Behringer PM1 este pasiv.</b> Intrarea XLR nu primește semnal de linie direct din mixer: are nevoie de un amplificator de căști înainte. Lanțul este: ieșire Wing/SD16 → XLR mamă–jack TRS → amplificator de căști → jack TRS–XLR tată → PM1.</div>
+<div class="card"><h2>Toate traseele de cablu</h2>
+<p class="hint">Lungimea estimată = traseu pe podea (în unghi drept) + coborârea de la stativ + 10% + 1 m rezervă. Recomandarea este următoarea lungime standard.</p>
+<table id="tCab"></table></div>
+</section>
+
+<section id="montaj">
+<div class="card"><div class="progress" id="mprog"></div><div class="bar"><i id="mprogbar"></i></div>
+<p class="hint">Pentru fiecare zonă: ce echipament montezi și ce cabluri tragi acolo, cu lungimea recomandată. Prima bifă = montat, a doua = testat. Bifele se păstrează în acest browser.</p>
+<button id="clearM" style="margin-top:8px">Debifează tot</button></div>
+<div class="grid2" id="mz"></div>
+</section>
+<section id="checklist">
+<div class="card">
+<div class="progress" id="prog"></div><div class="bar"><i id="progbar"></i></div>
+<p class="hint">Bifele se păstrează doar în acest browser. Prima coloană = încărcat, a doua = montat.</p>
+<button id="clearChk" style="margin-top:8px">Debifează tot</button>
+<div class="chk" id="chk"></div>
+</div>
+</section>
+</main>
+
+<script>
+const TYPES={
+XLR:{n:'XLR mamă–tată',c:'#e8a33d',std:[1,2,3,5,10,15,20,25,30]},
+JACK:{n:'Jack 6,3 – jack 6,3',c:'#4f8fe8',std:[1,2,3,5,6,10]},
+XLRTRS:{n:'XLR mamă → jack TRS 6,3 (intrare amp căști)',c:'#e05a87',std:[1,2,3,5,10,15,20]},
+TRSXLR:{n:'Jack TRS 6,3 → XLR tată (spre PM1)',c:'#a35ee8',std:[1,2,3,5,10]},
+CAT:{n:'CAT5e/CAT6 ecranat',c:'#1fa37a',std:[5,10,15,20,30,50]},
+HP:{n:'Prelungitor căști',c:'#8f97a3',std:[3,5]},
+PWR:{n:'Prelungitor 230 V',c:'#d93a2f',std:[3,5,10,15,25,50]}
+};
+const KIND={unit:'#c2410c',mic:'#2563eb',mon:'#0f766e',pa:'#57534e',amp:'#7c3aed',player:'#9333ea',power:'#d93a2f',router:'#1fa37a',wl:'#2563eb'};
+
+function defaults(){
+const it=[];
+const A=(id,label,fx,fy,h,kind,extra)=>it.push(Object.assign({id,label,fx,fy,h,kind},extra||{}));
+A('wing','Wing Rack',.73,.9,.5,'unit');
+A('sd16','SD16',.27,.9,.5,'unit');
+A('wl','Receptoare wireless',.84,.9,.5,'wl');
+A('di','DI-uri band',.82,.62,.3,'amp');
+A('paL','Boxă L + sub',.02,.96,.3,'pa');
+A('paR','Boxă R + sub',.98,.96,.3,'pa');
+for(let i=0;i<6;i++)A('cm'+(i+1),'CM'+(i+1),.335+i*.066,.47,2.2,'mic');
+for(let i=0;i<4;i++)A('cc'+(i+1),'CC'+(i+1),.36+i*.093,.85,1.5,'mic');
+for(let i=0;i<4;i++)A('co'+(i+1),'Co'+(i+1),.05+i*.065,.45,1.8,'mic');
+A('pup','Pupitru',.66,.92,1.2,'mic');
+A('rec1','Rec1',.42,.93,1.2,'mic');
+A('rec2','Rec2',.56,.93,1.2,'mic');
+A('mCM1','Mon cor mare 1',.31,.28,.3,'mon');
+A('mCM2','Mon cor mare 2',.69,.28,.3,'mon');
+A('mCC','Mon cor copii',.31,.7,.3,'mon');
+A('mS1','Mon solist 1',.47,.98,.3,'mon');
+A('mS2','Mon solist 2',.53,.98,.3,'mon');
+A('haS','Amp căști coarde',.15,.62,.8,'amp');
+A('haB','Amp căști band',.86,.42,.8,'amp');
+A('dir','Dirijor (PM1)',.5,.9,1.0,'player');
+for(let i=0;i<8;i++)A('s'+(i+1),'Cd'+(i+1),.04+(i%4)*.065,.56+Math.floor(i/4)*.16,1.0,'player');
+A('pian','Pian',.78,.48,1.0,'player');
+A('synth','Synth',.8,.2,1.0,'player');
+A('tobe','Tobe el.',.93,.15,1.0,'player');
+A('bas','Bas',.94,.56,1.0,'player');
+A('acu','Acustică',.85,.74,1.0,'player');
+A('power','Priză',1,.75,.3,'power');
+A('router','Router (2 m)',.73,0,2.0,'router',{hall:true});
+return it;
+}
+function conns(){
+const c=[];const C=(f,t,ty,n,lab,g)=>c.push({f,t,ty,n:n||1,lab,g});
+for(let i=1;i<=6;i++)C('cm'+i,'sd16','XLR',1,'Cor mare '+i+' → SD16 '+i,'Intrări');
+for(let i=1;i<=4;i++)C('cc'+i,'sd16','XLR',1,'Cor copii '+i+' → SD16 '+(6+i),'Intrări');
+for(let i=1;i<=4;i++)C('co'+i,'sd16','XLR',1,'Coarde '+i+' → SD16 '+(10+i),'Intrări');
+C('rec1','sd16','XLR',1,'Recitare 1 → SD16 15','Intrări');
+C('rec2','sd16','XLR',1,'Recitare 2 → SD16 16','Intrări');
+C('pup','wing','XLR',1,'Pupitru → Wing 14','Intrări');
+C('tobe','di','JACK',2,'Tobe L/R → DI','Intrări');
+C('pian','di','JACK',2,'Pian L/R → DI','Intrări');
+C('synth','di','JACK',2,'Synth L/R → DI','Intrări');
+C('pian','di','JACK',1,'Click (pianist) → DI · verifică mufa dispozitivului','Intrări');
+C('bas','di','JACK',1,'Bas → DI activ','Intrări');
+C('acu','di','JACK',1,'Acustică → DI activ','Intrări');
+C('di','wing','XLR',9,'DI-uri → Wing 1–9 (tobe, pian, synth, click, bas, acustică)','Intrări');
+C('wl','wing','XLR',4,'Wireless → Wing 10–13','Intrări');
+C('wing','paL','XLR',1,'Wing out 1 → boxă L','PA');
+C('wing','paR','XLR',1,'Wing out 2 → boxă R','PA');
+C('wing','paR','XLR',1,'Wing out 3 → sub R','PA');
+C('paR','paL','XLR',1,'Sub R Link → sub L','PA');
+C('wing','haB','XLRTRS',5,'Wing out 4–8 → amp căști band','In-ear');
+[['pian','pian'],['synth','synth'],['tobe','tobe'],['bas','bas'],['acu','acustică']].forEach(p=>C('haB',p[0],'TRSXLR',1,'Amp band → PM1 '+p[1],'In-ear'));
+C('sd16','mCM1','XLR',1,'SD16 out 1 → monitor cor mare 1','Monitoare');
+C('sd16','mCM2','XLR',1,'SD16 out 2 → monitor cor mare 2','Monitoare');
+C('sd16','mCC','XLR',1,'SD16 out 3 → monitor cor copii','Monitoare');
+C('sd16','haS','XLRTRS',1,'SD16 out 4 (click) → amp căști coarde','In-ear');
+for(let i=1;i<=8;i++)C('haS','s'+i,'HP',1,'Amp coarde → coarde '+i,'In-ear');
+C('haS','dir','TRSXLR',1,'Amp coarde (spliter Y) → PM1 dirijor','In-ear');
+C('sd16','mS1','XLR',1,'SD16 out 5 → monitor solist 1','Monitoare');
+C('sd16','mS2','XLR',1,'SD16 out 6 → monitor solist 2','Monitoare');
+C('wing','sd16','CAT',1,'AES50 Wing ↔ SD16','Rețea');
+C('wing','router','CAT',1,'Wing → router (control tabletă)','Rețea');
+const near=distTo('power','wing')<distTo('power','sd16')?'wing':'sd16';
+C('power','wing','PWR',1,'Priză → distribuitor dreapta (Wing)','Curent');
+C('power','sd16','PWR',1,'Priză → distribuitor stânga (SD16)','Curent');
+C(near,'router','PWR',1,'Curent → router din sală','Curent');
+['paL','mCM1','mCC','haS'].forEach(x=>C('sd16',x,'PWR',1,'Distribuitor stânga → '+lab(x),'Curent'));
+['paR','mCM2','mS1','mS2','haB','pian','synth','tobe'].forEach(x=>C('wing',x,'PWR',1,'Distribuitor dreapta → '+lab(x),'Curent'));
+return c;
+}
+
+const LSKEY='concert-filarmonica-v2';
+let st={W:12,D:4.5,R:5,pos:{},chk:{},hide:{}};
+try{const s=JSON.parse(localStorage.getItem(LSKEY)||'null');if(s)st=Object.assign(st,s);}catch(e){}
+function save(){try{localStorage.setItem(LSKEY,JSON.stringify(st));}catch(e){}if(typeof syncLayout==='function')syncLayout();}
+let items=defaults();
+const ZDEF={orch:{x0:.005,x1:.3,y0:.04,y1:.96,t:'Coarde + alamă',c:'#c2410c'},cm:{x0:.32,x1:.68,y0:.04,y1:.5,t:'Cor mare (40)',c:'#2563eb'},cc:{x0:.32,x1:.68,y0:.55,y1:.88,t:'Cor copii (50)',c:'#0891b2'},band:{x0:.7,x1:.995,y0:.04,y1:.96,t:'Band',c:'#9333ea'}};
+function zoneOf(id){if(/^(co\d|s\d|haS)/.test(id))return'orch';if(/^cm\d/.test(id))return'cm';if(/^cc\d/.test(id))return'cc';if(['pian','synth','tobe','bas','acu','haB','di'].includes(id))return'band';return null;}
+function Z(k){return Object.assign({},ZDEF[k],(st.zones||{})[k]||{});}
+function applyPos(){items=defaults();items.forEach(i=>{const z=zoneOf(i.id);if(z){const d=ZDEF[z];i.zone=z;i.rx=(i.fx-d.x0)/(d.x1-d.x0);i.ry=(i.fy-d.y0)/(d.y1-d.y0);}
+const p=st.pos[i.id];if(p){if(i.zone&&p.rx!=null){i.rx=p.rx;i.ry=p.ry;}else if(!i.zone&&p.fx!=null){i.fx=p.fx;if(p.fy!=null)i.fy=p.fy;}}});}
+applyPos();
+const byId=id=>items.find(i=>i.id===id);
+const lab=id=>byId(id).label;
+function P(id){const i=byId(id);if(i.zone){const z=Z(i.zone);return{x:(z.x0+i.rx*(z.x1-z.x0))*st.W,y:(z.y0+i.ry*(z.y1-z.y0))*st.D,h:i.h};}if(i.hall)return{x:i.fx*st.W,y:st.D+st.R,h:i.h};return{x:i.fx*st.W,y:i.fy*st.D,h:i.h};}
+function distTo(a,b){const A=P(a),B=P(b);return Math.abs(A.x-B.x)+Math.abs(A.y-B.y);}
+function est(c){const A=P(c.f),B=P(c.t);if(c.f==='wing'&&c.t==='sd16'||c.f==='sd16'&&c.t==='wing'){}return (Math.abs(A.x-B.x)+Math.abs(A.y-B.y)+A.h+B.h)*1.1+1;}
+function pick(ty,L){const s=TYPES[ty].std;for(const v of s)if(v>=L)return{v,x:1};const m=s[s.length-1];return{v:m,x:Math.ceil(L/m)};}
+const fmt=v=>(Math.round(v*10)/10).toString().replace('.',',');
+
+// ---- stage svg
+const S=60,M=30;
+const svg=document.getElementById('stage');
+function el(n,a,p){const e=document.createElementNS('http://www.w3.org/2000/svg',n);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function drawStage(){
+const W=st.W*S,D=st.D*S,H=D+(st.R+1.2)*S;
+svg.setAttribute('viewBox',`0 0 ${W+2*M} ${H+2*M}`);
+svg.innerHTML='';
+const g=el('g',{transform:`translate(${M},${M})`},svg);
+const dark=matchMedia('(prefers-color-scheme:dark)').matches;
+const ink=dark?'#ecebe6':'#1f1e1b',mut=dark?'#a3a19a':'#6b6960',stageFill=dark?'#2a2824':'#efece4';
+el('rect',{x:0,y:0,width:W,height:D,rx:8,fill:stageFill,stroke:mut,'stroke-width':1},g);
+for(let m=1;m<st.W;m++)el('line',{x1:m*S,y1:0,x2:m*S,y2:D,stroke:mut,'stroke-opacity':.15},g);
+Object.keys(ZDEF).forEach(k=>{const z=Z(k),x=z.x0*W,y=z.y0*D,w=(z.x1-z.x0)*W,h=(z.y1-z.y0)*D;
+const zr=el('rect',{x,y,width:w,height:h,rx:6,fill:z.c,'fill-opacity':dark?.18:.14,stroke:z.c,'stroke-opacity':.6,style:'cursor:move'},g);
+zr.addEventListener('pointerdown',ev=>startZone(ev,k,'move'));
+const tx=el('text',{x:x+8,y:y+16,'font-size':12,fill:z.c,'font-weight':600,'pointer-events':'none'},g);tx.textContent=z.t;
+const ts=el('text',{x:x+8,y:y+30,'font-size':11,fill:z.c,'pointer-events':'none'},g);ts.textContent=fmt((z.x1-z.x0)*st.W)+' × '+fmt((z.y1-z.y0)*st.D)+' m';
+[['tl',x,y],['br',x+w,y+h]].forEach(([hn,hx,hy])=>{const hd=el('rect',{x:hx-8,y:hy-8,width:16,height:16,rx:3,fill:'#fff',stroke:z.c,'stroke-width':2,style:'cursor:nwse-resize'},g);hd.addEventListener('pointerdown',ev=>startZone(ev,k,hn));});});
+const t1=el('text',{x:W/2,y:D+S*.9,'text-anchor':'middle','font-size':13,fill:mut},g);t1.textContent='Public · 450 locuri';
+const t2=el('text',{x:W/2,y:-10,'text-anchor':'middle','font-size':12,fill:mut},g);t2.textContent=`Spatele scenei · ${fmt(st.W)} m × ${fmt(st.D)} m`;
+const cl=el('g',{},g);
+conns().forEach(c=>{if(st.hide[c.ty])return;const A=P(c.f),B=P(c.t);
+el('polyline',{points:`${A.x*S},${A.y*S} ${B.x*S},${A.y*S} ${B.x*S},${B.y*S}`,fill:'none',stroke:TYPES[c.ty].c,'stroke-width':c.ty==='CAT'?3:1.6,'stroke-opacity':.75,'stroke-dasharray':c.ty==='PWR'?'5 4':''},cl);});
+items.forEach(i=>{const p=P(i.id);const gi=el('g',{transform:`translate(${p.x*S},${p.y*S})`,style:'cursor:grab','data-id':i.id},g);
+const c=KIND[i.kind];
+if(i.kind==='mic')el('circle',{r:7,fill:c,stroke:'#fff','stroke-width':1.5},gi);
+else if(i.kind==='mon')el('polygon',{points:'-12,-6 12,-6 9,6 -9,6',fill:c,stroke:'#fff','stroke-width':1},gi);
+else if(i.kind==='player')el('circle',{r:9,fill:'none',stroke:c,'stroke-width':2},gi);
+else if(i.kind==='power')el('rect',{x:-8,y:-8,width:16,height:16,rx:3,fill:c},gi);
+else{const w=i.kind==='unit'?60:i.kind==='pa'?44:46;el('rect',{x:-w/2,y:-11,width:w,height:22,rx:4,fill:c},gi);}
+const big=['unit','pa','amp','router','wl'].includes(i.kind);
+if(i.kind==='unit'||i.kind==='pa'){const t=el('text',{y:4,'text-anchor':'middle','font-size':10,fill:'#fff','font-weight':600},gi);t.textContent=i.kind==='pa'?(i.id==='paL'?'PA L':'PA R'):i.label;}
+const lt=el('text',{y:big||i.kind==='mon'?24:20,'text-anchor':'middle','font-size':10,fill:ink},gi);
+lt.textContent=(i.kind==='unit'||i.kind==='pa')?'':i.label;
+const tt=el('title',{},gi);tt.textContent=i.label;
+gi.addEventListener('pointerdown',ev=>startDrag(ev,i));});
+}
+let drag=null;
+function toM(ev){const pt=svg.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;const q=pt.matrixTransform(svg.getScreenCTM().inverse());return{x:(q.x-M)/S,y:(q.y-M)/S};}
+function startDrag(ev,i){ev.preventDefault();ev.stopPropagation();drag=i;svg.setPointerCapture(ev.pointerId);}
+let zdrag=null;
+function startZone(ev,k,mode){ev.preventDefault();ev.stopPropagation();const m=toM(ev);zdrag={k,mode,m0:m,z0:Z(k)};svg.setPointerCapture(ev.pointerId);}
+function setZone(k,z){st.zones=st.zones||{};st.zones[k]={x0:z.x0,x1:z.x1,y0:z.y0,y1:z.y1};}
+svg.addEventListener('pointermove',ev=>{if(zdrag){const m=toM(ev),z=Object.assign({},zdrag.z0),dx=(m.x-zdrag.m0.x)/st.W,dy=(m.y-zdrag.m0.y)/st.D,cl=v=>Math.min(1,Math.max(0,v)),mn=.05;
+if(zdrag.mode==='move'){const w=z.x1-z.x0,h=z.y1-z.y0;z.x0=Math.min(1-w,Math.max(0,z.x0+dx));z.x1=z.x0+w;z.y0=Math.min(1-h,Math.max(0,z.y0+dy));z.y1=z.y0+h;}
+else if(zdrag.mode==='tl'){z.x0=Math.min(z.x1-mn,cl(z.x0+dx));z.y0=Math.min(z.y1-mn,cl(z.y0+dy));}
+else{z.x1=Math.max(z.x0+mn,cl(z.x1+dx));z.y1=Math.max(z.y0+mn,cl(z.y1+dy));}
+setZone(zdrag.k,z);drawStage();drawZoneTable();return;}
+if(!drag)return;const m=toM(ev);
+let fx=Math.min(1.02,Math.max(-.02,m.x/st.W));
+if(drag.hall){st.R=Math.max(1,Math.round((m.y-st.D)*2)/2);document.getElementById('inR').value=st.R;st.pos[drag.id]={fx};}
+else if(drag.zone){const z=Z(drag.zone);st.pos[drag.id]={rx:(m.x/st.W-z.x0)/(z.x1-z.x0),ry:(m.y/st.D-z.y0)/(z.y1-z.y0)};}
+else{const fy=Math.min(1.02,Math.max(-.02,m.y/st.D));st.pos[drag.id]={fx,fy};}
+applyPos();drawStage();});
+svg.addEventListener('pointerup',()=>{if(drag||zdrag){drag=null;zdrag=null;save();renderAll(false);}});
+
+function drawZoneTable(){const t=document.getElementById('tZone');
+let h='<tr><th>Zonă</th><th>Lățime</th><th>Adâncime</th><th>De la stânga</th><th>De la spate</th></tr>';
+Object.keys(ZDEF).forEach(k=>{const z=Z(k);const f=(fld,v)=>`<input type="number" step="0.1" min="0" data-z="${k}" data-f="${fld}" value="${Math.round(v*10)/10}">`;
+h+=`<tr><td><b style="color:${z.c}">${z.t}</b></td><td>${f('w',(z.x1-z.x0)*st.W)}</td><td>${f('h',(z.y1-z.y0)*st.D)}</td><td>${f('x',z.x0*st.W)}</td><td>${f('y',z.y0*st.D)}</td></tr>`;});
+t.innerHTML=h;
+t.querySelectorAll('input').forEach(inp=>inp.addEventListener('change',()=>{const k=inp.dataset.z,z=Z(k),v=Math.max(0,parseFloat(inp.value)||0);
+let x0=z.x0*st.W,w=(z.x1-z.x0)*st.W,y0=z.y0*st.D,hh=(z.y1-z.y0)*st.D;
+({w:()=>w=Math.max(.3,v),h:()=>hh=Math.max(.3,v),x:()=>x0=v,y:()=>y0=v})[inp.dataset.f]();
+w=Math.min(w,st.W);hh=Math.min(hh,st.D);x0=Math.min(x0,st.W-w);y0=Math.min(y0,st.D-hh);
+setZone(k,{x0:x0/st.W,x1:(x0+w)/st.W,y0:y0/st.D,y1:(y0+hh)/st.D});save();setTimeout(()=>renderAll(),0);}));}
+function drawLegend(){const L=document.getElementById('legend');L.innerHTML='';
+Object.entries(TYPES).forEach(([k,t])=>{const l=document.createElement('label');const cb=document.createElement('input');cb.type='checkbox';cb.checked=!st.hide[k];cb.onchange=()=>{st.hide[k]=!cb.checked;save();drawStage();};
+const sw=document.createElement('span');sw.className='sw';sw.style.background=t.c;l.append(cb,sw,document.createTextNode(t.n));L.append(l);});}
+
+// ---- channel list
+const SIN=[['1–6','Cor mare 1–6','Condensator, stativ înalt 2,2 m'],['7–10','Cor copii 1–4','Condensator, ~1,5 m'],['11–14','Coarde 1–4','Condensator, deasupra coardelor, spate spre alamă'],['15–16','Recitări copii','Stative scurte']];
+const WIN=[['1–2','Tobe electronice L/R','DI'],['3–4','Pian L/R','DI'],['5–6','Synth L/R','DI'],['7','Click (de la pianist)','DI · doar spre in-ear, niciodată în PA'],['8','Bas','DI activ'],['9','Chitară acustică','DI activ'],['10–11','Wireless soliști 1–2','Receptor lângă Wing'],['12','Wireless Adi (predică)','—'],['13','Wireless vorbitor 2','—'],['14','Microfon pupitru','Rezervă pentru Adi'],['15–24','Rezervă','—'],['USB','Laptop: negative + muzică fundal','Cablu USB B']];
+const WOUT=[['1–2','Boxe principale L/R','Ambele din Wing · XLR lung spre boxa L'],['3','Subwoofer (aux mono)','Doar tobe, bas, synth, puțin pian · LPF ~90 Hz'],['4','In-ear pian','Click tare'],['5','In-ear synth','—'],['6','In-ear tobe','Click tare'],['7','In-ear bas','—'],['8','In-ear acustică','—']];
+const SOUT=[['1–2','Monitoare cor mare','Volum mic'],['3','Monitor cor copii','Negative + band'],['4','Amp căști coarde','Doar click (+ puțin pian)'],['5–6','Monitoare soliști','—'],['7–8','Rezervă / stream','—']];
+function tbl(id,rows,h){document.getElementById(id).innerHTML='<tr><th>'+h.join('</th><th>')+'</th></tr>'+rows.map(r=>'<tr><td class="n"><b>'+r[0]+'</b></td><td>'+r[1]+'</td><td style="color:var(--mut)">'+r[2]+'</td></tr>').join('');}
+tbl('tWin',WIN,['Canal','Sursă','Notă']);tbl('tSin',SIN,['Canal','Sursă','Notă']);tbl('tWout',WOUT,['Ieșire','Destinație','Notă']);tbl('tSout',SOUT,['Ieșire','Destinație','Notă']);
+
+// ---- cables
+function cableRows(){return conns().map(c=>{const L=est(c);const p=pick(c.ty,L);return Object.assign({},c,{L,p});});}
+function drawCables(){const rows=cableRows();let h='<tr><th>Grup</th><th>Traseu</th><th>Tip</th><th>Buc.</th><th>Estimat</th><th>Ia</th></tr>';
+rows.forEach(r=>{h+=`<tr><td><span class="tag">${r.g}</span></td><td>${r.lab}</td><td><span class="sw" style="background:${TYPES[r.ty].c};margin-right:6px"></span>${TYPES[r.ty].n}</td><td class="n">${r.n}</td><td class="n">${fmt(r.L)} m</td><td class="n"><b>${r.p.x>1?r.p.x+' × ':''}${fmt(r.p.v)} m</b></td></tr>`;});
+document.getElementById('tCab').innerHTML=h;}
+
+// ---- checklist
+function checklist(){
+const agg={};cableRows().forEach(r=>{const k=r.ty+'|'+r.p.v;agg[k]=(agg[k]||0)+r.n*r.p.x;});
+const cab=Object.entries(agg).sort((a,b)=>{const[ta,la]=a[0].split('|'),[tb,lb]=b[0].split('|');return ta===tb?la-lb:Object.keys(TYPES).indexOf(ta)-Object.keys(TYPES).indexOf(tb);}).map(([k,q])=>{const[t,l]=k.split('|');return['cab:'+k,q,TYPES[t].n+' · '+fmt(+l)+' m'];});
+const aes=pick('CAT',est({f:'wing',t:'sd16'})).v;
+return [
+['Mixaj și rețea',[['wing',1,'Behringer Wing Rack'],['sd16',1,'Behringer SD16'],['tab',1,'Tabletă + încărcător + power bank'],['lap',1,'Laptop cu negativele + încărcător'],['usb',1,'Cablu USB A–B (laptop → Wing), 3 m'],['stick',1,'Stick USB cu negativele (backup)'],['rt',1,'Router Wi-Fi + alimentator'],['rts',1,'Stativ pentru router (2 m)'],['phn',1,'Căști de monitorizare pentru tine'],['lap2',1,'Laptop de rezervă pentru control prin cablu']]],
+['Cabluri (calculate din plan)',cab],
+['Cabluri și adaptoare de rezervă',[['sx10',3,'XLR rezervă · 10 m'],['sx5',3,'XLR rezervă · 5 m'],['sj',2,'Jack 6,3 rezervă · 5 m'],['scat',1,'CAT5e ecranat rezervă · '+aes+' m (pentru AES50)'],['strs',2,'Jack TRS → XLR tată rezervă · 5 m'],['ad1',2,'Adaptor XLR tată–tată'],['ad2',2,'Adaptor XLR mamă–mamă'],['ad3',2,'Cablu mini-jack 3,5 → 2 × jack 6,3 (click, telefon)'],['ad4',2,'Adaptor jack 6,3 → XLR'],['di',2,'DI box rezervă'],['dia',2,'DI activ (bas, acustică)'],['dil',7,'DI pasiv/linie (tobe 2, pian 2, synth 2, click 1)']]],
+['Microfoane',[['mcm',6,'Microfoane condensator cor mare'],['mcc',4,'Microfoane condensator cor copii'],['mco',4,'Microfoane condensator coarde'],['mpup',1,'Microfon pupitru'],['mrec',2,'Microfoane recitări'],['mwl',4,'Microfoane wireless (2 soliști, Adi, vorbitor 2) + receptoare'],['bat',16,'Baterii AA noi (2 per wireless + 8 rezervă)']]],
+['Stative',[['stcm',6,'Stative înalte cu braț (min. 2,2 m) – cor mare'],['stcc',4,'Stative cu braț – cor copii'],['stco',4,'Stative cu braț – coarde'],['stp',1,'Clemă/gooseneck pentru pupitru'],['strc',2,'Stative scurte – recitări copii'],['stws',2,'Suporturi pentru microfoanele soliștilor']]],
+['Monitoare și in-ear',[['mon',5,'Monitoare (3 cor, 2 soliști)'],['hab',1,'Amplificator de căști band (min. 5 canale, intrare separată pe canal)'],['has',1,'Amplificator de căști coarde (8 canale)'],['spl',1,'Spliter căști Y (pentru dirijor)'],['pm1',6,'Behringer PM1 (5 band + dirijor)'],['iem',6,'Căști in-ear (verifică cine își aduce)'],['hpx',8,'Prelungitoare căști coarde']]],
+['PA',[['tops',2,'Boxe principale'],['subs',2,'Subwoofere'],['pole',2,'Tije distanțiere sub → boxă']]],
+['Curent',[['dis',2,'Distribuitor cu min. 8 prize (stânga + dreapta)'],['tam',1,'Tambur 25 m de rezervă'],['pwrx',2,'Prelungitor 5 m de rezervă']]],
+['Diverse',[['gaf',2,'Bandă gaffer (lată)'],['lbl',1,'Bandă de marcat + marker (etichete canale)'],['vel',30,'Arici velcro / coliere'],['mat',2,'Protecții pentru cabluri pe culoare (cablul spre router)'],['lan',1,'Lanternă frontală'],['tst',1,'Tester cabluri'],['plan',1,'Program pe momente tipărit + channel list']]]
+];}
+function drawChk(){const box=document.getElementById('chk');box.innerHTML='';let tot=0,done=0;
+checklist().forEach(([sec,rows])=>{const h=document.createElement('h3');h.textContent=sec;box.append(h);
+const ch=document.createElement('div');ch.className='colh';ch.innerHTML='<span>Încărc.</span><span>Montat</span><span></span><span>Buc.</span>';box.append(ch);
+rows.forEach(([id,q,t])=>{const r=document.createElement('div');r.className='row';const s=st.chk[id]||{};
+const a=document.createElement('input');a.type='checkbox';a.checked=!!s.l;const b=document.createElement('input');b.type='checkbox';b.checked=!!s.m;
+const tx=document.createElement('span');tx.className='t';tx.textContent=t;const qq=document.createElement('span');qq.className='q';qq.textContent=q;
+if(s.l&&s.m)r.classList.add('done');
+const up=()=>{st.chk[id]={l:a.checked,m:b.checked};save();drawChk();pushCheck('chk',id,st.chk[id]);};a.onchange=up;b.onchange=up;
+r.append(a,b,tx,qq);box.append(r);tot+=2;done+=(s.l?1:0)+(s.m?1:0);});});
+document.getElementById('prog').textContent=`Progres: ${done} din ${tot} bife`;document.getElementById('progbar').style.width=(tot?done/tot*100:0)+'%';}
+document.getElementById('clearChk').onclick=()=>{const ids=Object.keys(st.chk);st.chk={};save();drawChk();clearShared('chk',ids);};
+
+
+// ---- montaj pe zone
+const MZ=[
+{k:'sd16',t:'SD16 (stânga)',c:'#c2410c',tip:'Pune-l primul: toate cablurile din stânga vin aici. Verifică pe Wing că SD16 apare pe AES50.',eq:[['u',1,'Behringer SD16'],['d',1,'Distribuitor curent stânga (min. 8 prize)'],['l',1,'Etichete pe intrări (1–16) și ieșiri (1–8)']]},
+{k:'orch',t:'Coarde + alamă',c:'#c2410c',tip:'Microfoanele cu spatele spre alamă, coborâte spre coarde. Click moderat în căști, ideal un singur in-ear.',eq:[['m',4,'Microfoane condensator coarde'],['s',4,'Stative cu braț'],['a',1,'Amplificator de căști coarde (8 canale)'],['y',1,'Spliter căști Y (pentru dirijor)'],['p48',1,'Phantom 48 V pornit pe SD16 11–14']]},
+{k:'cm',t:'Cor mare',c:'#2563eb',tip:'Stative la ~2,2 m, la 1–1,5 m în fața corului. Distanța între microfoane: cel puțin de 3 ori distanța microfon–cor.',eq:[['m',6,'Microfoane condensator'],['s',6,'Stative înalte cu braț (min. 2,2 m)'],['mo',2,'Monitoare (în lateral, volum mic)'],['p48',1,'Phantom 48 V pornit pe SD16 1–6']]},
+{k:'cc',t:'Cor copii',c:'#0891b2',tip:'Microfoanele mai aproape decât la corul mare. Monitorul dă negativul și band-ul.',eq:[['m',4,'Microfoane condensator'],['s',4,'Stative cu braț (~1,5 m)'],['mo',1,'Monitor'],['p48',1,'Phantom 48 V pornit pe SD16 7–10']]},
+{k:'front',t:'Față scenă: soliști, dirijor, pupitru',c:'#57534e',tip:'Cablul AES50 și XLR-ul spre boxa stângă trec pe aici: fixează-le bine cu bandă gaffer.',eq:[['mp',1,'Microfon pupitru + clemă/gooseneck'],['mr',2,'Microfoane recitări + stative scurte'],['mo',2,'Monitoare soliști'],['pm',1,'PM1 dirijor + in-ear'],['sw',2,'Suporturi pentru microfoanele wireless ale soliștilor']]},
+{k:'band',t:'Band',c:'#9333ea',tip:'Bas și acustică pe DI activ; tobe, pian, synth și click pe DI pasiv/linie. Click-ul nu ajunge niciodată în PA.',eq:[['dia',2,'DI activ (bas, acustică)'],['dil',7,'DI pasiv/linie (tobe 2, pian 2, synth 2, click 1)'],['a',1,'Amplificator de căști band (5 canale)'],['pm',5,'Behringer PM1'],['ie',5,'Căști in-ear (verifică cine își aduce)']]},
+{k:'wing',t:'Wing Rack (dreapta)',c:'#c2410c',tip:'Priza e aici. Router și tabletă conectate înainte de soundcheck; laptopul de rezervă pe cablu.',eq:[['u',1,'Behringer Wing Rack'],['d',1,'Distribuitor curent dreapta (min. 8 prize)'],['w',4,'Receptoare wireless + antene'],['b',16,'Baterii AA noi în microfoanele wireless'],['lp',1,'Laptop cu negative + cablu USB A–B'],['tb',1,'Tabletă încărcată + power bank']]},
+{k:'pa',t:'PA, curent și sală',c:'#57534e',tip:'Boxele pe colțurile scenei, pe podea, cu subwooferele. Cablurile pe culoarele publicului acoperite cu protecții.',eq:[['top',2,'Boxe principale'],['sub',2,'Subwoofere'],['pole',2,'Tije distanțiere'],['rt',1,'Router Wi-Fi + stativ 2 m'],['pr',2,'Protecții cabluri pe culoare'],['tm',1,'Tambur 25 m de rezervă']]}
+];
+function mzOf(id){if(['pup','rec1','rec2','mS1','mS2','dir'].includes(id))return'front';if(id==='mCM1'||id==='mCM2')return'cm';if(id==='mCC')return'cc';if(['paL','paR','router','power'].includes(id))return'pa';if(id==='wl')return'wing';const z=zoneOf(id);return z||id;}
+function mzCables(){const out={};MZ.forEach(z=>out[z.k]=[]);
+cableRows().forEach((r,i)=>{let k;const units=['wing','sd16'];
+if(units.includes(r.f)&&units.includes(r.t))k='front';
+else if(r.f==='power')k='pa';
+else if(units.includes(r.f))k=mzOf(r.t);
+else if(units.includes(r.t))k=mzOf(r.f);
+else k=mzOf(r.t);
+(out[k]||out.pa).push(Object.assign({id:'c'+i+':'+r.ty+':'+r.f+'-'+r.t},r));});return out;}
+function drawMontaj(){st.mz=st.mz||{};const box=document.getElementById('mz');box.innerHTML='';const cab=mzCables();let tot=0,done=0;
+const mkRow=(id,q,t,sw)=>{const r=document.createElement('div');r.className='row';const s=st.mz[id]||{};
+const a=document.createElement('input');a.type='checkbox';a.checked=!!s.m;const b=document.createElement('input');b.type='checkbox';b.checked=!!s.t;
+const tx=document.createElement('span');tx.className='t';if(sw){const d=document.createElement('span');d.className='sw';d.style.background=sw;d.style.marginRight='8px';tx.append(d);}tx.append(document.createTextNode(t));
+const qq=document.createElement('span');qq.className='q';qq.textContent=q;if(s.m&&s.t)r.classList.add('done');
+const up=()=>{st.mz[id]={m:a.checked,t:b.checked};save();drawMontaj();pushCheck('mz',id,st.mz[id]);};a.onchange=up;b.onchange=up;r.append(a,b,tx,qq);tot+=2;done+=(s.m?1:0)+(s.t?1:0);return r;};
+MZ.forEach(z=>{const c=document.createElement('div');c.className='card mzc';c.style.borderTopColor=z.c;
+const h=document.createElement('h2');h.textContent=z.t;const zp=document.createElement('span');zp.className='zp';h.append(zp);c.append(h);
+const tp=document.createElement('p');tp.className='tip';tp.textContent=z.tip;c.append(tp);
+const t0=tot,d0=done;
+const h3=document.createElement('h3');h3.textContent='Echipament';h3.style.fontSize='14px';c.append(h3);
+const ch=document.createElement('div');ch.className='colh';ch.innerHTML='<span>Montat</span><span>Testat</span><span></span><span>Buc.</span>';c.append(ch);
+z.eq.forEach(([id,q,t])=>c.append(mkRow('e:'+z.k+':'+id,q,t)));
+if(cab[z.k].length){const h4=document.createElement('h3');h4.textContent='Cabluri de tras';h4.style.fontSize='14px';c.append(h4);
+cab[z.k].forEach(r=>c.append(mkRow(r.id,r.n*r.p.x+' × '+fmt(r.p.v)+' m',r.lab+' · '+TYPES[r.ty].n,TYPES[r.ty].c)));}
+zp.textContent=`${done-d0}/${tot-t0}`;box.append(c);});
+document.getElementById('mprog').textContent=`Progres montaj: ${done} din ${tot} bife`;document.getElementById('mprogbar').style.width=(tot?done/tot*100:0)+'%';}
+document.getElementById('clearM').onclick=()=>{const ids=Object.keys(st.mz||{});st.mz={};save();drawMontaj();clearShared('mz',ids);};
+
+// ---- export / import
+const box=document.getElementById('cfgBox'),ta=document.getElementById('cfgText'),msg=document.getElementById('cfgMsg'),apply=document.getElementById('cfgApply');
+function cfgString(){return 'PLANSUNET1:'+JSON.stringify({W:st.W,D:st.D,R:st.R,pos:st.pos,zones:st.zones||{},chk:st.chk,mz:st.mz||{},hide:st.hide});}
+document.getElementById('cfgCopy').onclick=async()=>{const t=cfgString();box.style.display='block';apply.style.display='none';ta.value=t;
+try{await navigator.clipboard.writeText(t);msg.textContent='Configurația a fost copiată. Lipește-o într-o notiță sau trimite-o pe alt dispozitiv. Textul e și mai jos.';}
+catch(e){msg.textContent='Nu am putut copia automat. Selectează textul de mai jos și copiază-l manual.';}
+ta.focus();ta.select();};
+document.getElementById('cfgLoad').onclick=()=>{box.style.display='block';apply.style.display='';ta.value='';msg.textContent='Lipește aici textul copiat cu „Copiază configurația” și apasă Aplică. Planul actual va fi înlocuit.';ta.focus();};
+document.getElementById('cfgClose').onclick=()=>{box.style.display='none';};
+apply.onclick=()=>{let t=ta.value.trim();try{if(!t.startsWith('PLANSUNET1:'))throw 0;const o=JSON.parse(t.slice(11));
+['W','D','R'].forEach(k=>{if(typeof o[k]==='number')st[k]=o[k];});['pos','zones','chk','mz','hide'].forEach(k=>{if(o[k]&&typeof o[k]==='object')st[k]=o[k];});
+save();iW.value=st.W;iD.value=st.D;iR.value=st.R;applyPos();drawLegend();renderAll();msg.textContent='Configurația a fost încărcată.';apply.style.display='none';}
+catch(e){msg.textContent='Textul nu pare o configurație validă. Verifică să fie copiat complet, începând cu PLANSUNET1:';}};
+
+// ---- controls & tabs
+const iW=document.getElementById('inW'),iD=document.getElementById('inD'),iR=document.getElementById('inR');
+iW.value=st.W;iD.value=st.D;iR.value=st.R;
+[[iW,'W'],[iD,'D'],[iR,'R']].forEach(([e,k])=>e.addEventListener('input',()=>{const v=parseFloat(e.value);if(v>0){st[k]=v;save();renderAll();}}));
+document.getElementById('reset').onclick=()=>{st.pos={};st.zones={};save();applyPos();renderAll();};
+function renderAll(stage=true){if(stage)drawStage();drawZoneTable();drawMontaj();drawCables();drawChk();}
+function route(){const t=(location.hash||'#scena').slice(1);const ok=['scena','canale','cabluri','montaj','checklist'].includes(t)?t:'scena';
+document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===ok));document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.t===ok));}
+addEventListener('hashchange',route);route();drawLegend();renderAll();
+
+// ---- sincronizare live
+// Supabase (pentru varianta hostată): completează URL și cheia publică. Gol = se folosește baza Claude sau doar local.
+const SB_URL='https://ugtweqoaezspbsgnzqjk.supabase.co';
+const SB_KEY='sb_publishable_46-2ak71rKPXz2LD3ZTrhw_evYcsIBS';
+let SYNC=null,applyingRemote=false,lastLayout=null,layoutTimer=null;
+const syncTag=document.getElementById('sync');
+function setSync(t,ok){syncTag.textContent=t;syncTag.style.background=ok?'#dcfce7':'';syncTag.style.color=ok?'#166534':'';}
+const docId=(scope,id)=>(scope+'__'+id).replace(/[^A-Za-z0-9_\-.~:@+]/g,'~').slice(0,190);
+function layoutObj(){return{W:st.W,D:st.D,R:st.R,pos:st.pos||{},zones:st.zones||{}};}
+function syncLayout(){if(!SYNC||applyingRemote)return;const j=JSON.stringify(layoutObj());if(j===lastLayout)return;
+clearTimeout(layoutTimer);layoutTimer=setTimeout(async()=>{const j2=JSON.stringify(layoutObj());if(j2===lastLayout)return;lastLayout=j2;
+try{await SYNC.setLayout(JSON.parse(j2));}catch(e){onWriteErr(e);}},700);}
+const pending={};
+async function pushCheck(scope,id,val){if(!SYNC)return;const k=docId(scope,id);
+const a=scope==='chk'?!!val.l:!!val.m,b=scope==='chk'?!!val.m:!!val.t;
+const was=pending[k];pending[k]={scope,id,a,b,busy:was&&was.busy};if(was&&was.busy)return;pending[k].busy=true;
+while(true){const p=pending[k];const body={scope:p.scope,id:p.id,a:p.a,b:p.b};
+try{await SYNC.setCheck(k,body);}catch(e){onWriteErr(e);}
+const now=pending[k];if(now.a===body.a&&now.b===body.b){delete pending[k];break;}}}
+async function clearShared(scope,ids){if(!SYNC)return;try{await SYNC.delChecks(ids.map(id=>docId(scope,id)));}catch(e){onWriteErr(e);}}
+function onWriteErr(e){console.warn('sync',e);if(e&&e.code==='invalid_argument')setSync('Doar citire',false);else setSync('Eroare la salvare – verifică internetul',false);}
+function applyChecks(rows){const chk={},mz={};
+rows.forEach(x=>{if(!x||!x.scope||!x.id)return;(x.scope==='chk'?chk:mz)[x.id]=x.scope==='chk'?{l:!!x.a,m:!!x.b}:{m:!!x.a,t:!!x.b};});
+Object.values(pending).forEach(p=>{(p.scope==='chk'?chk:mz)[p.id]=p.scope==='chk'?{l:p.a,m:p.b}:{m:p.a,t:p.b};});
+st.chk=chk;st.mz=mz;applyingRemote=true;save();applyingRemote=false;drawChk();drawMontaj();}
+function applyLayout(x){if(!x)return;const j=JSON.stringify({W:x.W,D:x.D,R:x.R,pos:x.pos||{},zones:x.zones||{}});
+if(j===JSON.stringify(layoutObj())){lastLayout=j;return;}if(drag||zdrag)return;
+lastLayout=j;applyingRemote=true;Object.assign(st,JSON.parse(j));save();applyingRemote=false;
+iW.value=st.W;iD.value=st.D;iR.value=st.R;applyPos();renderAll();}
+
+async function startSupabase(){
+setSync('Se conectează…',false);
+await new Promise((res,rej)=>{const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';sc.onload=res;sc.onerror=rej;document.head.append(sc);});
+const sb=window.supabase.createClient(SB_URL,SB_KEY);const rows={};
+const chk=(r)=>({id:r.item,scope:r.scope,a:r.a,b:r.b});
+SYNC={
+ setCheck:async(k,b)=>{const {error}=await sb.from('plan_checks').upsert({id:k,scope:b.scope,item:b.id,a:b.a,b:b.b,updated_at:new Date().toISOString()});if(error)throw error;},
+ delChecks:async(keys)=>{for(let i=0;i<keys.length;i+=100){const {error}=await sb.from('plan_checks').delete().in('id',keys.slice(i,i+100));if(error)throw error;}},
+ setLayout:async(o)=>{const {error}=await sb.from('plan_layout').upsert({id:'main',data:o,updated_at:new Date().toISOString()});if(error)throw error;}
+};
+sb.channel('plan').on('postgres_changes',{event:'*',schema:'public',table:'plan_checks'},p=>{
+ if(p.eventType==='DELETE'){delete rows[p.old.id];}else{rows[p.new.id]=p.new;}applyChecks(Object.values(rows).map(chk));})
+.on('postgres_changes',{event:'*',schema:'public',table:'plan_layout'},p=>{if(p.new&&p.new.data)applyLayout(p.new.data);})
+.subscribe(async status=>{if(status==='SUBSCRIBED'){
+ const a=await sb.from('plan_checks').select('*');if(a.error){setSync('Nu mă pot conecta la baza de date',false);return;}
+ Object.keys(rows).forEach(k=>delete rows[k]);a.data.forEach(r=>rows[r.id]=r);applyChecks(Object.values(rows).map(chk));
+ const l=await sb.from('plan_layout').select('*').eq('id','main').maybeSingle();if(l.data)applyLayout(l.data.data);
+ setSync('Sincronizat live',true);}
+ else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')setSync('Reconectare…',false);});
+}
+async function startClaudeDb(){let db=null;try{db=await window.claude?.use?.('db');}catch(e){}
+if(!db){setSync('Doar local (fără sincronizare)',false);return;}
+setSync('Se conectează…',false);const timer=setTimeout(()=>setSync('Sincronizarea nu răspunde încă',false),10000);
+SYNC={setCheck:(k,b)=>db.collection('checks').doc(k).set(Object.assign({at:Date.now()},b)),
+ delChecks:async(keys)=>{for(const k of keys)await db.collection('checks').doc(k).delete();},
+ setLayout:(o)=>db.doc('plan/layout').set(o)};
+db.collection('checks').onSnapshot(snap=>{clearTimeout(timer);applyChecks(snap.docs.map(d=>d.data()));if(!snap.metadata.fromCache)setSync('Sincronizat live',true);},()=>{clearTimeout(timer);setSync('Sincronizare oprită',false);});
+db.doc('plan/layout').onSnapshot(d=>{if(d.exists)applyLayout(d.data());else lastLayout=null;},()=>{});}
+if(SB_URL&&SB_KEY&&!SB_KEY.startsWith('__'))startSupabase().catch(()=>setSync('Doar local (nu se poate încărca sincronizarea)',false));
+else startClaudeDb();
+</script>
+</body>
+</html>
