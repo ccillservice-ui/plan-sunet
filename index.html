@@ -35,6 +35,7 @@ th{font-size:12px;color:var(--mut);font-weight:600;text-transform:none}
 td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px}
 #tZone input{width:76px}
+select.sel{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:15px}
 .tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:10px;background:var(--accbg);color:var(--acc);white-space:nowrap}
 .warn{background:var(--accbg);border:1px solid var(--acc);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:14px}
 .chk h3{font-size:15px;margin:14px 0 6px}
@@ -87,6 +88,19 @@ td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
 <div class="card"><h2>Dimensiunile zonelor (m)</h2>
 <p class="hint" style="margin:0 0 10px">Poți trage zona ca s-o muți, colțurile albe ca s-o redimensionezi, sau scrii valorile aici. Microfoanele și muzicienii din zonă se mută odată cu ea. „De la stânga” și „de la spate” sunt măsurate din colțul stânga-spate al scenei, privit din sală.</p>
 <table id="tZone"></table>
+</div>
+<div class="card"><h2>Adaugă echipament sau priză</h2>
+<p class="hint" style="margin:0 0 10px">Elementul nou apare în fața scenei, la mijloc: trage-l unde trebuie. Cablul se calculează spre cea mai apropiată unitate (sau distribuitor de curent) și apare în Cabluri, Montaj și Checklist. Distribuitoarele de curent se leagă singure la cea mai apropiată priză.</p>
+<div class="controls" style="margin:0">
+<label>Nume<input id="cuName" style="width:180px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:15px" placeholder="ex. Priză spate"></label>
+<label>Tip<select id="cuKind" class="sel"><option value="power">Priză</option><option value="mic">Microfon</option><option value="mon">Monitor</option><option value="pa">Boxă</option><option value="amp">Alt echipament</option></select></label>
+<label>Bucăți<input type="number" id="cuN" min="1" value="1"></label>
+<label>Cablu<select id="cuCable" class="sel"><option value="none">Fără</option><option value="XLR">XLR</option><option value="JACK">Jack</option><option value="PWR">Prelungitor 230 V</option><option value="CAT">CAT5e/CAT6</option></select></label>
+<label>Se leagă la<select id="cuTo" class="sel"><option value="auto">Cea mai apropiată unitate</option><option value="wing">Wing Rack</option><option value="sd16">SD16</option></select></label>
+<button id="cuAdd">Adaugă</button>
+</div>
+<p id="cuErr" class="hint" style="color:var(--acc)"></p>
+<table id="tCu"></table>
 </div>
 </section>
 
@@ -163,7 +177,9 @@ A('synth','Synth',.8,.2,1.0,'player');
 A('tobe','Tobe el.',.93,.15,1.0,'player');
 A('bas','Bas',.94,.56,1.0,'player');
 A('acu','Acustică',.85,.74,1.0,'player');
-A('power','Priză',1,.75,.3,'power');
+A('powerL','Priză stânga',0,.85,.3,'power');
+A('powerR','Priză dreapta',1,.75,.3,'power');
+(st.custom||[]).forEach(c=>A(c.id,c.label,c.fx,c.fy,c.h,c.kind,{custom:true,cu:c}));
 A('router','Router (2 m)',.73,0,2.0,'router',{hall:true});
 return it;
 }
@@ -199,17 +215,22 @@ C('sd16','mS1','XLR',1,'SD16 out 5 → monitor solist 1','Monitoare');
 C('sd16','mS2','XLR',1,'SD16 out 6 → monitor solist 2','Monitoare');
 C('wing','sd16','CAT',1,'AES50 Wing ↔ SD16','Rețea');
 C('wing','router','CAT',1,'Wing → router (control tabletă)','Rețea');
-const near=distTo('power','wing')<distTo('power','sd16')?'wing':'sd16';
-C('power','wing','PWR',1,'Priză → distribuitor dreapta (Wing)','Curent');
-C('power','sd16','PWR',1,'Priză → distribuitor stânga (SD16)','Curent');
+const outlets=items.filter(i=>i.kind==='power').map(i=>i.id);
+const nearest=(to,list)=>list.reduce((b,x)=>distTo(x,to)<distTo(b,to)?x:b,list[0]);
+if(outlets.length){C(nearest('wing',outlets),'wing','PWR',1,'Priză → distribuitor dreapta (Wing)','Curent');
+C(nearest('sd16',outlets),'sd16','PWR',1,'Priză → distribuitor stânga (SD16)','Curent');}
+const near=nearest('router',['wing','sd16']);
 C(near,'router','PWR',1,'Curent → router din sală','Curent');
+(st.custom||[]).forEach(cu=>{if(cu.kind==='power'||cu.cable==='none')return;
+const t=cu.to&&cu.to!=='auto'?cu.to:nearest(cu.id,['wing','sd16']);
+C(cu.id,t,cu.cable,cu.n||1,cu.label+' → '+(cu.cable==='PWR'?'distribuitor ':'')+lab(t),'Adăugate');});
 ['paL','mCM1','mCC','haS'].forEach(x=>C('sd16',x,'PWR',1,'Distribuitor stânga → '+lab(x),'Curent'));
 ['paR','mCM2','mS1','mS2','haB','pian','synth','tobe'].forEach(x=>C('wing',x,'PWR',1,'Distribuitor dreapta → '+lab(x),'Curent'));
 return c;
 }
 
 const LSKEY='concert-filarmonica-v2';
-let st={W:12,D:4.5,R:5,pos:{},chk:{},hide:{}};
+let st={W:12,D:4.5,R:5,pos:{},chk:{},hide:{},custom:[]};
 try{const s=JSON.parse(localStorage.getItem(LSKEY)||'null');if(s)st=Object.assign(st,s);}catch(e){}
 function save(){try{localStorage.setItem(LSKEY,JSON.stringify(st));}catch(e){}if(typeof syncLayout==='function')syncLayout();}
 let items=defaults();
@@ -259,9 +280,9 @@ else if(i.kind==='player')el('circle',{r:9,fill:'none',stroke:c,'stroke-width':2
 else if(i.kind==='power')el('rect',{x:-8,y:-8,width:16,height:16,rx:3,fill:c},gi);
 else{const w=i.kind==='unit'?60:i.kind==='pa'?44:46;el('rect',{x:-w/2,y:-11,width:w,height:22,rx:4,fill:c},gi);}
 const big=['unit','pa','amp','router','wl'].includes(i.kind);
-if(i.kind==='unit'||i.kind==='pa'){const t=el('text',{y:4,'text-anchor':'middle','font-size':10,fill:'#fff','font-weight':600},gi);t.textContent=i.kind==='pa'?(i.id==='paL'?'PA L':'PA R'):i.label;}
+if((i.kind==='unit'||i.kind==='pa')&&!i.custom){const t=el('text',{y:4,'text-anchor':'middle','font-size':10,fill:'#fff','font-weight':600},gi);t.textContent=i.kind==='pa'?(i.id==='paL'?'PA L':'PA R'):i.label;}
 const lt=el('text',{y:big||i.kind==='mon'?24:20,'text-anchor':'middle','font-size':10,fill:ink},gi);
-lt.textContent=(i.kind==='unit'||i.kind==='pa')?'':i.label;
+lt.textContent=((i.kind==='unit'||i.kind==='pa')&&!i.custom)?'':i.label;
 const tt=el('title',{},gi);tt.textContent=i.label;
 gi.addEventListener('pointerdown',ev=>startDrag(ev,i));});
 }
@@ -325,6 +346,7 @@ return [
 ['Stative',[['stcm',6,'Stative înalte cu braț (min. 2,2 m) – cor mare'],['stcc',4,'Stative cu braț – cor copii'],['stco',4,'Stative cu braț – coarde'],['stp',1,'Clemă/gooseneck pentru pupitru'],['strc',2,'Stative scurte – recitări copii'],['stws',2,'Suporturi pentru microfoanele soliștilor']]],
 ['Monitoare și in-ear',[['mon',5,'Monitoare (3 cor, 2 soliști)'],['hab',1,'Amplificator de căști band (min. 5 canale, intrare separată pe canal)'],['has',1,'Amplificator de căști coarde (8 canale)'],['spl',1,'Spliter căști Y (pentru dirijor)'],['pm1',6,'Behringer PM1 (5 band + dirijor)'],['iem',6,'Căști in-ear (verifică cine își aduce)'],['hpx',8,'Prelungitoare căști coarde']]],
 ['PA',[['tops',2,'Boxe principale'],['subs',2,'Subwoofere'],['pole',2,'Tije distanțiere sub → boxă']]],
+...((st.custom||[]).filter(c=>c.kind!=='power').length?[['Echipament adăugat de tine',(st.custom||[]).filter(c=>c.kind!=='power').map(c=>['cu:'+c.id,c.n||1,c.label])]]:[]),
 ['Curent',[['dis',2,'Distribuitor cu min. 8 prize (stânga + dreapta)'],['tam',1,'Tambur 25 m de rezervă'],['pwrx',2,'Prelungitor 5 m de rezervă']]],
 ['Diverse',[['gaf',2,'Bandă gaffer (lată)'],['lbl',1,'Bandă de marcat + marker (etichete canale)'],['vel',30,'Arici velcro / coliere'],['mat',2,'Protecții pentru cabluri pe culoare (cablul spre router)'],['lan',1,'Lanternă frontală'],['tst',1,'Tester cabluri'],['plan',1,'Program pe momente tipărit + channel list']]]
 ];}
@@ -352,7 +374,9 @@ const MZ=[
 {k:'wing',t:'Wing Rack (dreapta)',c:'#c2410c',tip:'Priza e aici. Router și tabletă conectate înainte de soundcheck; laptopul de rezervă pe cablu.',eq:[['u',1,'Behringer Wing Rack'],['d',1,'Distribuitor curent dreapta (min. 8 prize)'],['w',4,'Receptoare wireless + antene'],['b',16,'Baterii AA noi în microfoanele wireless'],['lp',1,'Laptop cu negative + cablu USB A–B'],['tb',1,'Tabletă încărcată + power bank']]},
 {k:'pa',t:'PA, curent și sală',c:'#57534e',tip:'Boxele pe colțurile scenei, pe podea, cu subwooferele. Cablurile pe culoarele publicului acoperite cu protecții.',eq:[['top',2,'Boxe principale'],['sub',2,'Subwoofere'],['pole',2,'Tije distanțiere'],['rt',1,'Router Wi-Fi + stativ 2 m'],['pr',2,'Protecții cabluri pe culoare'],['tm',1,'Tambur 25 m de rezervă']]}
 ];
-function mzOf(id){if(['pup','rec1','rec2','mS1','mS2','dir'].includes(id))return'front';if(id==='mCM1'||id==='mCM2')return'cm';if(id==='mCC')return'cc';if(['paL','paR','router','power'].includes(id))return'pa';if(id==='wl')return'wing';const z=zoneOf(id);return z||id;}
+function zoneByPos(id){const p=P(id);for(const k of Object.keys(ZDEF)){const z=Z(k);if(p.x>=z.x0*st.W&&p.x<=z.x1*st.W&&p.y>=z.y0*st.D&&p.y<=z.y1*st.D)return k;}
+if(p.y>.85*st.D&&p.x>.3*st.W&&p.x<.7*st.W)return'front';return p.x<st.W/2?'sd16':'wing';}
+function mzOf(id){const it=byId(id);if(it&&it.kind==='power')return'pa';if(it&&it.custom)return zoneByPos(id);if(['pup','rec1','rec2','mS1','mS2','dir'].includes(id))return'front';if(id==='mCM1'||id==='mCM2')return'cm';if(id==='mCC')return'cc';if(['paL','paR','router','power'].includes(id))return'pa';if(id==='wl')return'wing';const z=zoneOf(id);return z||id;}
 function mzCables(){const out={};MZ.forEach(z=>out[z.k]=[]);
 cableRows().forEach((r,i)=>{let k;const units=['wing','sd16'];
 if(units.includes(r.f)&&units.includes(r.t))k='front';
@@ -374,15 +398,34 @@ const t0=tot,d0=done;
 const h3=document.createElement('h3');h3.textContent='Echipament';h3.style.fontSize='14px';c.append(h3);
 const ch=document.createElement('div');ch.className='colh';ch.innerHTML='<span>Montat</span><span>Testat</span><span></span><span>Buc.</span>';c.append(ch);
 z.eq.forEach(([id,q,t])=>c.append(mkRow('e:'+z.k+':'+id,q,t)));
+(st.custom||[]).filter(cu=>cu.kind!=='power'&&mzOf(cu.id)===z.k).forEach(cu=>c.append(mkRow('e:cu:'+cu.id,cu.n||1,cu.label+' (adăugat)')));
 if(cab[z.k].length){const h4=document.createElement('h3');h4.textContent='Cabluri de tras';h4.style.fontSize='14px';c.append(h4);
 cab[z.k].forEach(r=>c.append(mkRow(r.id,r.n*r.p.x+' × '+fmt(r.p.v)+' m',r.lab+' · '+TYPES[r.ty].n,TYPES[r.ty].c)));}
 zp.textContent=`${done-d0}/${tot-t0}`;box.append(c);});
 document.getElementById('mprog').textContent=`Progres montaj: ${done} din ${tot} bife`;document.getElementById('mprogbar').style.width=(tot?done/tot*100:0)+'%';}
 document.getElementById('clearM').onclick=()=>{const ids=Object.keys(st.mz||{});st.mz={};save();drawMontaj();clearShared('mz',ids);};
 
+// ---- echipament adăugat
+const cuKind=document.getElementById('cuKind'),cuCable=document.getElementById('cuCable');
+cuKind.onchange=()=>{if(cuKind.value==='power')cuCable.value='none';};
+function drawCustom(){const t=document.getElementById('tCu');const list=st.custom||[];
+if(!list.length){t.innerHTML='';return;}
+t.innerHTML='<tr><th>Element</th><th>Tip</th><th>Buc.</th><th>Cablu</th><th></th></tr>';
+const kn={power:'Priză',mic:'Microfon',mon:'Monitor',pa:'Boxă',amp:'Alt echipament'};
+list.forEach(c=>{const tr=document.createElement('tr');const cells=[c.label,kn[c.kind]||c.kind,String(c.n||1),c.cable==='none'?'—':TYPES[c.cable].n];
+cells.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td);});
+const td=document.createElement('td');const b=document.createElement('button');b.textContent='Șterge';b.onclick=()=>{st.custom=st.custom.filter(x=>x.id!==c.id);delete st.pos[c.id];save();applyPos();renderAll();};td.append(b);tr.append(td);t.append(tr);});}
+document.getElementById('cuAdd').onclick=()=>{const nm=document.getElementById('cuName').value.trim(),err=document.getElementById('cuErr');
+if(!nm){err.textContent='Scrie un nume pentru element.';return;}err.textContent='';
+const kind=cuKind.value,n=Math.max(1,parseInt(document.getElementById('cuN').value)||1);
+const h={mic:1.5,mon:.3,pa:.3,power:.3,amp:.5}[kind];
+st.custom=st.custom||[];const id='u'+Date.now().toString(36);
+st.custom.push({id,label:nm.slice(0,40),kind,n,h,fx:.5,fy:.97,cable:kind==='power'?'none':cuCable.value,to:document.getElementById('cuTo').value});
+document.getElementById('cuName').value='';save();applyPos();renderAll();};
+
 // ---- export / import
 const box=document.getElementById('cfgBox'),ta=document.getElementById('cfgText'),msg=document.getElementById('cfgMsg'),apply=document.getElementById('cfgApply');
-function cfgString(){return 'PLANSUNET1:'+JSON.stringify({W:st.W,D:st.D,R:st.R,pos:st.pos,zones:st.zones||{},chk:st.chk,mz:st.mz||{},hide:st.hide});}
+function cfgString(){return 'PLANSUNET1:'+JSON.stringify({W:st.W,D:st.D,R:st.R,pos:st.pos,zones:st.zones||{},custom:st.custom||[],chk:st.chk,mz:st.mz||{},hide:st.hide});}
 document.getElementById('cfgCopy').onclick=async()=>{const t=cfgString();box.style.display='block';apply.style.display='none';ta.value=t;
 try{await navigator.clipboard.writeText(t);msg.textContent='Configurația a fost copiată. Lipește-o într-o notiță sau trimite-o pe alt dispozitiv. Textul e și mai jos.';}
 catch(e){msg.textContent='Nu am putut copia automat. Selectează textul de mai jos și copiază-l manual.';}
@@ -390,7 +433,7 @@ ta.focus();ta.select();};
 document.getElementById('cfgLoad').onclick=()=>{box.style.display='block';apply.style.display='';ta.value='';msg.textContent='Lipește aici textul copiat cu „Copiază configurația” și apasă Aplică. Planul actual va fi înlocuit.';ta.focus();};
 document.getElementById('cfgClose').onclick=()=>{box.style.display='none';};
 apply.onclick=()=>{let t=ta.value.trim();try{if(!t.startsWith('PLANSUNET1:'))throw 0;const o=JSON.parse(t.slice(11));
-['W','D','R'].forEach(k=>{if(typeof o[k]==='number')st[k]=o[k];});['pos','zones','chk','mz','hide'].forEach(k=>{if(o[k]&&typeof o[k]==='object')st[k]=o[k];});
+['W','D','R'].forEach(k=>{if(typeof o[k]==='number')st[k]=o[k];});['pos','zones','chk','mz','hide'].forEach(k=>{if(o[k]&&typeof o[k]==='object')st[k]=o[k];});if(Array.isArray(o.custom))st.custom=o.custom;
 save();iW.value=st.W;iD.value=st.D;iR.value=st.R;applyPos();drawLegend();renderAll();msg.textContent='Configurația a fost încărcată.';apply.style.display='none';}
 catch(e){msg.textContent='Textul nu pare o configurație validă. Verifică să fie copiat complet, începând cu PLANSUNET1:';}};
 
@@ -399,7 +442,7 @@ const iW=document.getElementById('inW'),iD=document.getElementById('inD'),iR=doc
 iW.value=st.W;iD.value=st.D;iR.value=st.R;
 [[iW,'W'],[iD,'D'],[iR,'R']].forEach(([e,k])=>e.addEventListener('input',()=>{const v=parseFloat(e.value);if(v>0){st[k]=v;save();renderAll();}}));
 document.getElementById('reset').onclick=()=>{st.pos={};st.zones={};save();applyPos();renderAll();};
-function renderAll(stage=true){if(stage)drawStage();drawZoneTable();drawMontaj();drawCables();drawChk();}
+function renderAll(stage=true){if(stage)drawStage();drawZoneTable();drawCustom();drawMontaj();drawCables();drawChk();}
 function route(){const t=(location.hash||'#scena').slice(1);const ok=['scena','canale','cabluri','montaj','checklist'].includes(t)?t:'scena';
 document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===ok));document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.t===ok));}
 addEventListener('hashchange',route);route();drawLegend();renderAll();
@@ -412,7 +455,7 @@ let SYNC=null,applyingRemote=false,lastLayout=null,layoutTimer=null;
 const syncTag=document.getElementById('sync');
 function setSync(t,ok){syncTag.textContent=t;syncTag.style.background=ok?'#dcfce7':'';syncTag.style.color=ok?'#166534':'';}
 const docId=(scope,id)=>(scope+'__'+id).replace(/[^A-Za-z0-9_\-.~:@+]/g,'~').slice(0,190);
-function layoutObj(){return{W:st.W,D:st.D,R:st.R,pos:st.pos||{},zones:st.zones||{}};}
+function layoutObj(){return{W:st.W,D:st.D,R:st.R,pos:st.pos||{},zones:st.zones||{},custom:st.custom||[]};}
 function syncLayout(){if(!SYNC||applyingRemote)return;const j=JSON.stringify(layoutObj());if(j===lastLayout)return;
 clearTimeout(layoutTimer);layoutTimer=setTimeout(async()=>{const j2=JSON.stringify(layoutObj());if(j2===lastLayout)return;lastLayout=j2;
 try{await SYNC.setLayout(JSON.parse(j2));}catch(e){onWriteErr(e);}},700);}
@@ -429,7 +472,7 @@ function applyChecks(rows){const chk={},mz={};
 rows.forEach(x=>{if(!x||!x.scope||!x.id)return;(x.scope==='chk'?chk:mz)[x.id]=x.scope==='chk'?{l:!!x.a,m:!!x.b}:{m:!!x.a,t:!!x.b};});
 Object.values(pending).forEach(p=>{(p.scope==='chk'?chk:mz)[p.id]=p.scope==='chk'?{l:p.a,m:p.b}:{m:p.a,t:p.b};});
 st.chk=chk;st.mz=mz;applyingRemote=true;save();applyingRemote=false;drawChk();drawMontaj();}
-function applyLayout(x){if(!x)return;const j=JSON.stringify({W:x.W,D:x.D,R:x.R,pos:x.pos||{},zones:x.zones||{}});
+function applyLayout(x){if(!x)return;const j=JSON.stringify({W:x.W,D:x.D,R:x.R,pos:x.pos||{},zones:x.zones||{},custom:x.custom||[]});
 if(j===JSON.stringify(layoutObj())){lastLayout=j;return;}if(drag||zdrag)return;
 lastLayout=j;applyingRemote=true;Object.assign(st,JSON.parse(j));save();applyingRemote=false;
 iW.value=st.W;iD.value=st.D;iR.value=st.R;applyPos();renderAll();}
