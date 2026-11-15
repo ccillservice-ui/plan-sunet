@@ -116,6 +116,9 @@ select.sel{padding:8px;border:1px solid var(--line);border-radius:8px;background
 
 <section id="cabluri">
 <div class="warn"><b>Behringer PM1 este pasiv.</b> Intrarea XLR nu primește semnal de linie direct din mixer: are nevoie de un amplificator de căști înainte. Lanțul este: ieșire Wing/SD16 → XLR mamă–jack TRS → amplificator de căști → jack TRS–XLR tată → PM1.</div>
+<div class="card"><h2>Necesar cabluri: total și pe zone</h2>
+<p class="hint" style="margin:0 0 10px">Câte cabluri de fiecare tip și lungime îți trebuie în fiecare zonă de montaj. Rezervele sunt separat, în Checklist.</p>
+<div style="overflow-x:auto"><table id="tNeed"></table></div></div>
 <div class="card"><h2>Toate traseele de cablu</h2>
 <p class="hint">Lungimea estimată = traseu pe podea (în unghi drept) + coborârea de la stativ + 10% + 1 m rezervă. Recomandarea este următoarea lungime standard.</p>
 <table id="tCab"></table></div>
@@ -344,7 +347,17 @@ tbl('tWin',WIN,['Canal','Sursă','Notă']);tbl('tSin',SIN,['Canal','Sursă','Not
 
 // ---- cables
 function cableRows(){return conns().map(c=>{const L=est(c);const p=pick(c.ty,L);return Object.assign({},c,{L,p});});}
-function drawCables(){const rows=cableRows();let h='<tr><th>Grup</th><th>Traseu</th><th>Tip</th><th>Buc.</th><th>Estimat</th><th>Ia</th></tr>';
+function drawNeed(){const cab=mzCables();const zs=MZ.filter(z=>cab[z.k].length);const agg={};
+zs.forEach(z=>cab[z.k].forEach(r=>{const k=r.ty+'|'+r.p.v;agg[k]=agg[k]||{};agg[k][z.k]=(agg[k][z.k]||0)+r.n*r.p.x;}));
+const keys=Object.keys(agg).sort((a,b)=>{const[ta,la]=a.split('|'),[tb,lb]=b.split('|');return ta===tb?la-lb:Object.keys(TYPES).indexOf(ta)-Object.keys(TYPES).indexOf(tb);});
+let h='<tr><th>Tip cablu</th><th>Lungime</th>'+zs.map(z=>`<th style="color:${z.c}">${z.t}</th>`).join('')+'<th>Total</th></tr>';
+const colTot={};let grand=0,prevT='';
+keys.forEach(k=>{const[t,l]=k.split('|');let tot=0;const cells=zs.map(z=>{const v=agg[k][z.k]||0;tot+=v;colTot[z.k]=(colTot[z.k]||0)+v;return `<td class="n">${v||'<span style="color:var(--mut)">–</span>'}</td>`;}).join('');grand+=tot;
+h+=`<tr${t!==prevT&&prevT?' style="border-top:2px solid var(--line)"':''}><td>${t!==prevT?`<span class="sw" style="background:${TYPES[t].c};margin-right:6px"></span>${TYPES[t].n}`:''}</td><td class="n">${fmt(+l)} m</td>${cells}<td class="n"><b>${tot}</b></td></tr>`;prevT=t;});
+const typeTot={};keys.forEach(k=>{const t=k.split('|')[0];typeTot[t]=(typeTot[t]||0)+Object.values(agg[k]).reduce((a,b)=>a+b,0);});
+h+='<tr><td><b>Total pe zonă</b></td><td></td>'+zs.map(z=>`<td class="n"><b>${colTot[z.k]||0}</b></td>`).join('')+`<td class="n"><b>${grand}</b></td></tr>`;
+document.getElementById('tNeed').innerHTML=h+'<tr><td colspan="'+(zs.length+3)+'" style="color:var(--mut);font-size:13px">Pe tipuri: '+Object.entries(typeTot).map(([t,v])=>TYPES[t].n+': <b>'+v+'</b>').join(' · ')+'</td></tr>';}
+function drawCables(){drawNeed();const rows=cableRows();let h='<tr><th>Grup</th><th>Traseu</th><th>Tip</th><th>Buc.</th><th>Estimat</th><th>Ia</th></tr>';
 rows.forEach(r=>{h+=`<tr><td><span class="tag">${r.g}</span></td><td>${r.lab}</td><td><span class="sw" style="background:${TYPES[r.ty].c};margin-right:6px"></span>${TYPES[r.ty].n}</td><td class="n">${r.n}</td><td class="n">${fmt(r.L)} m</td><td class="n"><b>${r.p.x>1?r.p.x+' × ':''}${fmt(r.p.v)} m</b></td></tr>`;});
 document.getElementById('tCab').innerHTML=h;}
 
@@ -394,7 +407,7 @@ if(p.y>.85*st.D&&p.x>.3*st.W&&p.x<.7*st.W)return'front';return p.x<st.W/2?'sd16'
 function mzOf(id){const it=byId(id);if(it&&it.kind==='power')return'pa';if(it&&it.custom)return zoneByPos(id);if(['pup','rec1','rec2','mS1','mS2','dir'].includes(id))return'front';if(id==='mCM1'||id==='mCM2')return'cm';if(id==='mCC')return'cc';if(['paL','paR','router','power'].includes(id))return'pa';if(id==='wl')return'wing';const z=zoneOf(id);return z||id;}
 function mzCables(){const out={};MZ.forEach(z=>out[z.k]=[]);
 cableRows().forEach((r,i)=>{let k;const units=['wing','sd16'];
-if(units.includes(r.f)&&units.includes(r.t))k='front';
+if(units.includes(r.f)&&units.includes(r.t))k='sd16';
 else if(r.f==='power')k='pa';
 else if(units.includes(r.f))k=mzOf(r.t);
 else if(units.includes(r.t))k=mzOf(r.f);
